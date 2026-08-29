@@ -1,0 +1,28 @@
+1. 有关 TensorRT 对指定 ONNX 图中 ONNX 算子支持情况的详细信息获取,参阅：
+  D:\CV_FILE\my_FILE\polygraphy_file\tools\Polygraphy\examples\cli\inspect\08_inspecting_tensorrt_onnx_support
+  D:\CV_FILE\my_FILE\polygraphy_file\tools\Polygraphy\examples\cli\inspect\09_inspecting_tensorrt_static_onnx_support
+
+2. 生成用于高级比较的脚本:
+  D:\CV_FILE\my_FILE\polygraphy_file\tools\Polygraphy\examples\cli\run\03_generating_a_comparison_script
+
+3. 添加精度约束:
+  D:\CV_FILE\my_FILE\polygraphy_file\tools\Polygraphy\examples\cli\run\08_adding_precision_constraints
+
+4. 调试不稳定的 TensorRT 策略:有时，TensorRT 中的某个策略（tactic）可能会产生错误的结果，或表现出其他缺陷行为。由于 TensorRT 构建器依赖于对策略进行计时，
+引擎构建过程是非确定性的，这可能导致策略缺陷表现为不稳定/间歇性的故障。解决该问题的一种方法是多次运行构建器，并保存每次运行的策略重放文件。
+一旦我们收集到一组已知正常和已知异常的策略，就可以通过比较它们来确定哪个策略可能是错误来源。
+  D:\CV_FILE\my_FILE\polygraphy_file\tools\Polygraphy\examples\cli\debug\01_debugging_flaky_trt_tactics
+
+5. 找到失败的 ONNX 模型的算子：
+  D:\CV_FILE\my_FILE\polygraphy_file\tools\Polygraphy\examples\cli\debug\02_reducing_failing_onnx_models
+
+6. 基准量化模型：
+  D:\CV_FILE\my_FILE\polygraphy_file\tools\Polygraphy\examples\cli\convert\01_int8_calibration_in_tensorrt
+
+7. TensorRT 中的确定性引擎构建：在构建引擎期间，TensorRT 会运行并计时多个内核（kernel），以选择最优的内核。由于内核的计时结果在每次运行时可能会有细微差异，
+因此该过程本质上是非确定性的。在许多情况下，确定性的引擎构建可能是必要的。实现这一目标的一种方法是使用计时候存（timing cache），以确保每次都选择相同的内核。
+这个用法可用于在不同硬件上量化模型时能保证具有同样的构建。
+  D:\CV_FILE\my_FILE\polygraphy_file\tools\Polygraphy\examples\cli\convert\02_deterministic_engine_builds_in_tensorrt
+
+8. 在 TensorRT 中处理动态形状模型：
+  D:\CV_FILE\my_FILE\polygraphy_file\tools\Polygraphy\examples\cli\convert\03_dynamic_shapes_in_tensorrt

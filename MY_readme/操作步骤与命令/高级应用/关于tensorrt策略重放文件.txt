@@ -1,0 +1,37 @@
+polygraphy run model.onnx --trt --save-tactics replay.json
+
+以上命令的作用是：使用 TensorRT 运行 ONNX 模型，并将推理过程中每个层（layer）所选择的最优战术（tactic）保存到 replay.json 文件中。
+下面逐部分拆解说明：
+polygraphy run model.onnx	使用 Polygraphy 运行指定的 ONNX 模型
+--trt	指定使用 TensorRT 作为推理后端（而非 ONNX Runtime 等）
+--save-tactics replay.json	将 TRT 构建引擎时每个层选择的 tactic（算法策略） 序列化保存到 JSON 文件
+核心概念：什么是 Tactic？
+TensorRT 在构建优化引擎时，会对网络中的每一层尝试多种不同的实现算法（即 tactic），然后通过基准测试选择最快的那个。例如卷积层可能有 cuDNN、CUTLASS、隐式 GEMM 等多种实现方式。
+这个命令的实际用途
+可复现的构建结果
+TRT 的 tactic 选择可能因硬件驱动版本、TRT 版本甚至系统负载而不同。保存 tactics 后，后续可以用 --load-tactics replay.json 强制加载相同的 tactic 组合，确保引擎构建结果完全一致。
+调试精度/性能问题
+当某个层选择了特定 tactic 导致精度异常或性能回退时，可以通过检查 replay.json 定位到具体是哪一层、选了哪个 tactic，然后针对性地排除或替换。
+加速重复构建
+配合 --load-tactics 使用时，TRT 可以跳过 tactic 搜索阶段，直接应用已知的最优策略，显著缩短引擎构建时间。
+跨环境迁移参考
+虽然 tactic 不能直接跨 GPU 架构使用，但 replay.json 可以作为分析模型在不同平台上行为差异的参考依据。
+
+典型工作流：
+# 第一步：探索并保存最优 tactics
+polygraphy run model.onnx --trt --save-tactics replay.json
+
+# 第二步：后续构建时复用（跳过搜索，加速构建）
+polygraphy run model.onnx --trt --load-tactics replay.json
+
+# 第三步：如需调试，可查看内容
+cat replay.json | python -m json.tool
+
+检查策略重放：
+polygraphy inspect tactics replay.json
+
+ 注意事项
+replay.json 与 GPU 型号 + TRT 版本 强绑定，更换硬件或升级 TRT 后需要重新生成。
+该命令默认会执行一次完整的 TRT 构建 + 推理验证，首次运行耗时较长。
+如果只想保存 tactics 而不关心推理输出，可以加上 --validate 的替代选项或忽略验证结果。
+总结：这条命令本质上是 TRT 构建过程的"录像"功能，记录每一层的算法选择决策，用于复现、调试和加速后续的引擎构建。

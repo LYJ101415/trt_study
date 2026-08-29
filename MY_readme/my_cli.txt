@@ -1,0 +1,101 @@
+一：敏感层的查找：
+
+方法 A：CLI 逐层对比（最快上手）
+
+  Step 1 — 用 FP32 模型生成逐层 Golden 输出
+
+  polygraphy run fp32_model.onnx --onnxrt \
+      --save-inputs inputs.json \
+      --onnx-outputs mark all \
+      --save-outputs fp32_layerwise_golden.json
+
+  关键参数：
+  - --onnx-outputs mark all → ONNX Runtime 输出每一层的中间张量
+  - --save-inputs inputs.json → 保存本次使用的输入（确保 Q/DQ 模型用相同输入）
+  - --save-outputs fp32_layerwise_golden.json → 保存所有层的输出作为"黄金标准"
+
+  Step 2 — 用 Q/DQ 模型加载相同输入，逐层对比
+
+  polygraphy run qdq_model.onnx --onnxrt \
+      --load-inputs inputs.json \
+      --onnx-outputs mark all \
+      --load-outputs fp32_layerwise_golden.json \
+      --fail-fast
+
+  关键参数：
+  - --load-inputs inputs.json → 复用 step 1 的输入
+  - --load-outputs fp32_layerwise_golden.json → 将 FP32 每层输出作为对比基准
+  - --fail-fast → 遇到第一个不匹配的层就停止，精确定位误差引入点
+
+  可选：放宽 Q/DQ 容忍度
+
+  polygraphy run qdq_model.onnx --onnxrt \
+      --load-inputs inputs.json \
+      --onnx-outputs mark all \
+      --load-outputs fp32_layerwise_golden.json \
+      --atol 0.1 --rtol 0.1 \
+      --check-error-stat max \
+      --fail-fast
+
+  - --atol 0.1 --rtol 0.1 → INT8 量化通常需要放宽容忍度
+  - --check-error-stat max → 检查整个张量的最大误差（比默认 elemwise 更严格）
+
+  ---
+  方法 B：debug reduce 自动定位敏感层（最强大）
+
+  这是 debug/02_reducing_failing_onnx_models 示例的直接适配，适用于 量化后某些层误差大 的场景。
+
+  Step 1 — 预处理模型（处理动态 shape）
+
+  polygraphy surgeon sanitize qdq_model.onnx -o qdq_folded.onnx \
+      --fold-constants \
+      --override-input-shapes images:[1,3,640,640]
+
+  Step 2 — 生成逐层 Golden 数据（同方法A）
+
+  # 用 FP32 模型生成所有中间层的 golden 值
+  polygraphy run fp32_model.onnx --onnxrt \
+      --save-inputs inputs.json \
+      --onnx-outputs mark all \
+      --save-outputs layerwise_golden.json
+
+  # 合并输入和中间输出为 layerwise_inputs（供 debug reduce 使用）
+  polygraphy data to-input inputs.json layerwise_golden.json -o layerwise_inputs.json
+
+  Step 3 — debug reduce 二分裁剪找到敏感层
+
+  polygraphy debug reduce qdq_folded.onnx -o initial_reduced.onnx \
+      --mode=bisect \
+      --load-inputs layerwise_inputs.json \
+      --check polygraphy run polygraphy_debug.onnx --onnxrt \
+              --load-inputs layerwise_inputs.json \
+              --load-outputs layerwise_golden.json \
+      --artifacts-dir replays --artifacts polygraphy_debug.onnx
+
+  原理：
+  - 每次迭代移除一部分节点生成子图 → 如果子图与 FP32 golden 一致则"通过"
+  - 如果子图输出与 FP32 golden 偏差大则"失败" → 保留该子图继续缩减
+  - 最终得到：仅包含导致量化精度损失的最小算子集合 = 敏感层
+
+  Step 4 — Linear 模式精修
+
+  polygraphy debug reduce initial_reduced.onnx -o final_reduced.onnx \
+      --mode=linear \
+      --load-inputs layerwise_inputs.json \
+      --check polygraphy run polygraphy_debug.onnx --onnxrt \
+              --load-inputs layerwise_inputs.json \
+              --load-outputs layerwise_golden.json
+
+  --mode=linear 逐个移除节点，得到真正最小的敏感子图。
+
+  Step 5 — 查看结果
+
+  polygraphy inspect model final_reduced.onnx --show layers
+
+  
+  polygraphy run D:\CV_FILE\my_FILE\myStudy_flle\best_PCB_F.onnx --trt --onnxrt \
+    --trt-outputs mark all \
+    --onnx-outputs mark all \
+    --atol 0.1 --rtol 0.1 \
+    --check-error-stat median
+
