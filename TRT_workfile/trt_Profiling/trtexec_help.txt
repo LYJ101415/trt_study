@@ -1,0 +1,355 @@
+root@autodl-container-qftv8sufqw-504c2987:~/my_FILE# trtexec --help
+&&&& 正在运行 TensorRT.trtexec [TensorRT v100300] # trtexec --help
+=== 模型选项 ===
+  --onnx=<文件>               ONNX 模型文件路径
+
+=== 构建选项 ===
+  --minShapes=规格             使用包含指定最小形状的优化配置文件来构建动态形状引擎
+  --optShapes=规格             使用包含指定最优形状的优化配置文件来构建动态形状引擎
+  --maxShapes=规格             使用包含指定最大形状的优化配置文件来构建动态形状引擎
+  --minShapesCalib=规格        使用包含指定最小形状的优化配置文件进行校准
+  --optShapesCalib=规格        使用包含指定最优形状的优化配置文件进行校准
+  --maxShapesCalib=规格        使用包含指定最大形状的优化配置文件进行校准
+                             注意：必须同时提供 min、opt 和 max 三种形状。
+                                   但如果仅提供 opt 形状，则会自动扩展，使 min 和 max 形状与 opt 形状相同。
+                                   输入名称可以用转义的单引号包裹（例如：'Input:0'）。
+                             输入形状规格示例：input0:1x3x256x256,input1:1x3x128x128
+                             对于标量（0维形状），请使用 input0:scalar 或直接在冒号后留空（input0:）。
+                             每个输入形状以键值对形式提供，键为输入名称，值为该输入的维度（包括 batch 维度）。
+                             每个键值对中，键和值之间用冒号 (:) 分隔。
+                             多个输入形状可通过逗号分隔的键值对提供，每个输入名称最多可包含一个通配符 ('*')。
+  --inputIOFormats=规格        指定每个输入张量的数据类型和内存格式（默认 = 所有输入均为 fp32:chw）
+                             类型和格式列表的语法请参阅 --outputIOFormats 的帮助信息。
+                             注意：如果指定了此选项，请按照网络输入 ID 的顺序为所有输入设置逗号分隔的类型和格式
+                                   （即使只有一个输入需要指定 IO 格式），或者仅设置一次类型和格式以广播应用到所有输入。
+  --outputIOFormats=规格       指定每个输出张量的数据类型和内存格式（默认 = 所有输出均为 fp32:chw）
+                             注意：如果指定了此选项，请按照网络输出 ID 的顺序为所有输出设置逗号分隔的类型和格式
+                                   （即使只有一个输出需要指定 IO 格式），或者仅设置一次类型和格式以广播应用到所有输出。
+                             IO 格式语法：spec  ::= IOfmt[","spec]
+                                         IOfmt ::= type:fmt
+                                       type  ::= "fp32"|"fp16"|"bf16"|"int32"|"int64"|"int8"|"uint8"|"bool"
+                                       fmt   ::= ("chw"|"chw2"|"chw4"|"hwc8"|"chw16"|"chw32"|"dhwc8"|
+                                                  "cdhw32"|"hwc"|"dla_linear"|"dla_hwc4")["+"fmt]
+  --memPoolSize=池规格         指定内存池的大小限制
+                             支持以下二进制后缀：B（字节）、G（GiB）、K（KiB）、M（MiB）。
+                             若未附加后缀，默认单位为 MiB。
+                             注意：也接受小数大小，例如 0.25M，将向下取整到最近的整数字节。
+                                   特别地，对于 dlaSRAM，字节数将向下取整到最近的 2 的幂次。
+                             池约束语法：poolspec ::= poolfmt[","poolspec]
+                                          poolfmt ::= pool:size
+                                        pool ::= "workspace"|"dlaSRAM"|"dlaLocalDRAM"|"dlaGlobalDRAM"|"tacticSharedMem"
+  --profilingVerbosity=模式    指定性能分析的详细程度。mode ::= layer_names_only|detailed|none（默认 = layer_names_only）。
+                             请仅设置一次。
+  --avgTiming=M              设置内核选择时每次迭代中用于计算平均耗时的次数（默认 = 8）
+  --refit                    将引擎标记为可重构（refittable）。这允许检查引擎中可重构的层和权重。
+  --stripWeights             从计划文件中剥离权重。此标志可与 refit 配合使用，也可与"相同权重重构"配合使用。
+                             默认为后者，但可通过同时启用 --stripWeights 和 --refit 切换为前者。
+  --stripAllWeights          等同于同时使用 --refit 和 --stripWeights。将所有权重标记为可重构，不考虑任何性能影响。
+                             此外，在引擎构建完成后会剥离所有可重构的权重。
+  --weightless               [已弃用] 此选项已被弃用，请使用 --stripWeights。
+  --versionCompatible, --vc  将引擎标记为版本兼容。这允许引擎在同一主机操作系统上的较新版本 TensorRT 中使用，
+                             同时也支持 TensorRT 的 dispatch 和 lean 运行时。
+  --pluginInstanceNorm, --pi 在 ONNX 解析器中将 `kNATIVE_INSTANCENORM` 设为 false。这将使 ONNX 解析器在解析时
+                             使用插件实现的 InstanceNorm 而非原生实现。
+  --useRuntime=运行时         指定执行引擎所用的 TensorRT 运行时。"lean" 和 "dispatch" 需要加载版本兼容（VC）引擎，
+                             且不支持构建引擎。
+                                           runtime ::= "full"|"lean"|"dispatch"
+  --leanDLLPath=<文件>        在版本兼容模式下使用的外部 lean 运行时 DLL 路径。
+  --excludeLeanRuntime       当启用 --versionCompatible 时，此标志表示生成的引擎不应包含嵌入的 lean 运行时。
+                             如果设置了此项，用户在加载引擎时必须显式指定有效的 lean 运行时。
+  --sparsity=规格            控制稀疏性（默认 = disabled）。
+                             稀疏性规格：spec ::= "disable"|"enable"|"force"
+                             注意：各选项说明如下
+                                   disable = 不在构建器中启用稀疏策略（这是默认值）
+                                   enable  = 在构建器中启用稀疏策略（但仅当权重具有正确的稀疏模式时才会考虑这些策略）
+                                   force   = 在构建器中启用稀疏策略并强制覆盖权重使其具有稀疏模式（即使你自己加载了模型）
+                                             [已弃用] 此选项已被弃用。请使用 <polygraphy surgeon prune> 重写权重。
+  --noTF32                   禁用 TF32 精度（默认启用 TF32，作为 FP32 的补充）
+  --fp16                     启用 FP16 精度，作为 FP32 的补充（默认 = 禁用）
+  --bf16                     启用 BF16 精度，作为 FP32 的补充（默认 = 禁用）
+  --int8                     启用 INT8 精度，作为 FP32 的补充（默认 = 禁用）
+  --fp8                      启用 FP8 精度，作为 FP32 的补充（默认 = 禁用）
+  --int4                     启用 INT4 精度，作为 FP32 的补充（默认 = 禁用）
+  --best                     启用所有精度以获得最佳性能（默认 = 禁用）
+  --stronglyTyped            创建强类型网络。（默认 = 禁用）
+  --directIO                 避免在网络边界处进行格式转换。（默认 = 禁用）
+  --precisionConstraints=规格 控制精度约束设置。（默认 = none）
+                               精度约束：spec ::= "none" | "obey" | "prefer"
+                                 none   = 无约束
+                                 prefer = 尽可能满足由 --layerPrecisions/--layerOutputTypes 设定的精度约束
+                                 obey   = 必须满足由 --layerPrecisions/--layerOutputTypes 设定的精度约束，否则构建失败
+  --layerPrecisions=规格      控制逐层精度约束。仅在 precisionConstraints 设为 "obey" 或 "prefer" 时生效。（默认 = none）
+                             规格从左到右读取，后面的规格会覆盖前面的规格。每个层名称最多可包含一个通配符 ('*')。
+                             逐层精度规格 ::= layerPrecision[","spec]
+                                           layerPrecision ::= layerName":"precision
+                                           precision ::= "fp32"|"fp16"|"bf16"|"int32"|"int8"
+  --layerOutputTypes=规格     控制逐层输出类型约束。仅在 precisionConstraints 设为 "obey" 或 "prefer" 时生效。（默认 = none）
+                             规格从左到右读取，后面的规格会覆盖前面的规格。每个层名称最多可包含一个通配符 ('*')。
+                             如果某层有多个输出，可用 "+" 分隔为该层提供多种类型。
+                             逐层输出类型规格 ::= layerOutputTypes[","spec]
+                                               layerOutputTypes ::= layerName":"type
+                                               type ::= "fp32"|"fp16"|"bf16"|"int32"|"int8"["+"type]
+  --layerDeviceTypes=规格     指定特定层的设备类型。
+                             规格从左到右读取，后面的规格会覆盖前面的规格。如果某层未指定设备类型，
+                             则该层将使用默认设备类型。
+                             逐层设备类型规格 ::= layerDeviceTypePair[","spec]
+                                               layerDeviceTypePair ::= layerName":"deviceType
+                                                 deviceType ::= "GPU"|"DLA"
+  --calib=<文件>              读取 INT8 校准缓存文件
+  --safe                     启用安全认证引擎构建；如果启用了 DLA，将自动指定 --buildDLAStandalone（默认 = 禁用）
+  --buildDLAStandalone       启用构建可由 cuDLA 加载的独立 DLA 可执行文件。启用此选项时，
+                             不允许使用 --allowGPUFallback，且默认启用 --skipInference。此外，
+                             指定 --inputIOFormats 和 --outputIOFormats 会限制 I/O 数据类型和内存布局（默认 = 禁用）
+  --allowGPUFallback         当启用 DLA 时，允许不支持的层回退到 GPU 执行（默认 = 禁用）
+  --consistency              对安全认证引擎执行一致性检查
+  --restricted               启用带有 kSAFETY_SCOPE 构建标志的安全范围检查
+  --saveEngine=<文件>         保存序列化后的引擎文件
+  --loadEngine=<文件>         加载已序列化的引擎文件
+  --getPlanVersionOnly       打印加载的计划文件创建时所用的 TensorRT 版本。无需反序列化计划文件即可工作。
+                             需与 --loadEngine 一起使用。仅支持 8.6 及更高版本创建的引擎。
+  --tacticSources=策略        通过添加 (+) 或移除 (-) 策略来指定要使用的算法策略来源（默认 = 所有可用策略）。
+                             注意：目前仅 cuDNN、cuBLAS、cuBLAS-LT 和 edge mask convolutions 被列为可选策略。
+                             策略来源语法：tactics ::= [","tactic]
+                                           tactic  ::= (+|-)lib
+                                         lib     ::= "CUBLAS"|"CUBLAS_LT"|"CUDNN"|"EDGE_MASK_CONVOLUTIONS"
+                                                     |"JIT_CONVOLUTIONS"
+                             例如，禁用 cudnn 并启用 cublas：--tacticSources=-CUDNN,+CUBLAS
+  --noBuilderCache           禁用构建器中的时序缓存（默认启用时序缓存）
+  --noCompilationCache       禁用构建器中的编译缓存，该缓存是时序缓存的一部分（默认启用编译缓存）
+  --errorOnTimingCacheMiss   当被计时的策略不在时序缓存中时发出错误（默认 = false）
+  --timingCacheFile=<文件>    保存/加载序列化的全局时序缓存
+  --preview=特性             通过添加 (+) 或移除 (-) 预览特性来指定要使用的预览功能
+                             预览特性语法：features ::= [","feature]
+                                              feature  ::= (+|-)flag
+                                            flag     ::= "aliasedPluginIO1003"
+                                                         |"profileSharing0806"
+  --builderOptimizationLevel 设置构建器优化级别。（默认 = 3）
+                             更高的级别允许 TensorRT 花费更多构建时间以尝试更多优化选项。
+                             有效值为从 0 到当前最大优化级别的整数，目前最大为 5。
+  --hardwareCompatibilityLevel=模式  使引擎文件与其他 GPU 架构兼容。（默认 = none）
+                             硬件兼容性级别：mode ::= "none" | "ampere+"
+                                   none    = 不保证兼容性
+                                   ampere+ = 兼容 Ampere 及更新的 GPU
+  --runtimePlatform=平台      设置运行时执行的目标平台。（默认 = SameAsBuild）
+                             启用此选项时，默认启用 --skipInference。
+                             运行时平台：platform ::= "SameAsBuild" | "WindowsAMD64"
+                                   SameAsBuild   = 无跨平台兼容性要求。
+                                   WindowsAMD64  = 将引擎执行目标平台设为 Windows AMD64 系统
+  --tempdir=<目录>            覆盖 TensorRT 创建临时文件时使用的默认临时目录。
+                             更多信息请参阅 IRuntime::setTemporaryDirectory API 文档。
+  --tempfileControls=控制项   控制 TensorRT 在创建临时可执行文件时被允许使用的方式。
+                             应为逗号分隔的列表，条目格式为 (in_memory|temporary):(allow|deny)。
+                             in_memory：控制是否允许 TensorRT 创建临时内存可执行文件。
+                             temporary ：控制是否允许 TensorRT 在文件系统中（由 --tempdir 指定的目录）创建临时可执行文件。
+                             例如，允许内存文件但禁止临时文件：
+                                 --tempfileControls=in_memory:allow,temporary:deny
+                             如果未指定某个标志，默认行为为 "allow"。
+  --maxAuxStreams=N          设置每个推理流允许 TRT 使用的最大辅助流数量，以便在网络包含可并行操作时
+                             并行运行内核，代价是增加内存使用量。设为 0 可获得最优内存使用。（默认 = 使用启发式方法）
+  --profile                  使用提供的 min/max/opt 形状构建动态形状优化配置文件。可多次指定以创建索引连续的多个配置文件。
+                             （例如：--profile=0 --minShapes=<规格> --optShapes=<规格> --maxShapes=<规格> --profile=1 ...）
+  --calibProfile             按索引选择用于校准的优化配置文件。（默认 = 0）
+  --allowWeightStreaming     启用权重流式引擎。必须与 --stronglyTyped 一起指定。除非指定了 --weightStreamingBudget，
+                             否则 TensorRT 将在运行时禁用权重流式传输。
+  --markDebug                指定要标记为调试张量的张量名称列表。名称之间用逗号分隔。
+
+=== 推理选项 ===
+  --shapes=规格              为动态形状推理设置输入形状。
+                             注意：输入名称可以用转义的单引号包裹（例如：'Input:0'）。
+                             输入形状规格示例：input0:1x3x256x256, input1:1x3x128x128
+                             对于标量（0维形状），请使用 input0:scalar 或直接在冒号后留空（input0:）。
+                             每个输入形状以键值对形式提供，键为输入名称，值为该输入的维度（包括 batch 维度）。
+                             每个键值对中，键和值之间用冒号 (:) 分隔。
+                             多个输入形状可通过逗号分隔的键值对提供，每个输入名称最多可包含一个通配符 ('*')。
+  --loadInputs=规格          从文件加载输入值（默认 = 生成随机输入）。输入名称可用单引号包裹（例如：'Input:0'）
+                             输入值规格 ::= Ival[","spec]
+                                          Ival ::= name":"file
+                             有关生成自定义输入文件的更多信息，请参阅 README。
+  --iterations=N             至少运行 N 次推理迭代（默认 = 10）
+  --warmUp=N                 在测量性能之前预热 N 毫秒（默认 = 200）
+  --duration=N               至少运行 N 秒的实际时间来测量性能（默认 = 3）
+                             如果指定 -1，推理将持续运行直到手动停止
+  --sleepTime=N              在启动和计算之间延迟 N 毫秒再开始推理（默认 = 0）
+  --idleTime=N               两次连续迭代之间休眠 N 毫秒（默认 = 0）
+  --infStreams=N             实例化 N 个执行上下文以并发运行推理（默认 = 1）
+  --exposeDMA                序列化设备与主机之间的 DMA 传输（默认 = 禁用）。
+  --noDataTransfers          禁用设备与主机之间的 DMA 传输（默认 = 启用）。
+  --useManagedMemory         使用托管内存代替分离的主机和设备内存分配（默认 = 禁用）。
+  --useSpinWait              主动同步 GPU 事件。此选项可能减少同步时间但增加 CPU 使用率和功耗（默认 = 禁用）
+  --threads                  启用多线程，以独立线程驱动引擎或加速重构（默认 = 禁用）
+  --useCudaGraph             使用 CUDA Graph 捕获引擎执行过程然后启动推理（默认 = 禁用）。
+                             如果图捕获失败，此标志可能会被忽略。
+  --timeDeserialize          测量反序列化网络所需的时间并退出。
+  --timeRefit                测量推理前重构引擎所需的时间。
+  --separateProfileRun       不在基准测试运行中附加性能分析器；如果启用了性能分析，将执行第二次单独的分析运行（默认 = 禁用）
+  --skipInference            在引擎构建完成后直接退出，跳过推理性能测量（默认 = 禁用）
+  --persistentCacheRatio     以比率设置 persistentCacheLimit，0.5 表示最大持久 L2 缓存大小的一半（默认 = 0）
+  --useProfile               设置推理上下文使用的优化配置文件（默认 = 0）。
+  --allocationStrategy=规格  指定推理内部设备内存的分配方式。
+                             策略：spec ::= "static"|"profile"|"runtime"
+                                   static  = 根据所有配置文件中的最大尺寸分配设备内存。
+                                   profile = 根据当前配置文件的最大尺寸分配设备内存。
+                                   runtime = 根据实际输入形状分配设备内存。
+  --saveDebugTensors         指定要开启调试状态的张量名称列表以及保存原始输出的文件名。
+                             这些张量必须在构建时被指定为调试张量。
+                             输入值规格 ::= Ival[","spec]
+                                          Ival ::= name":"file
+  --weightStreamingBudget    设置 TensorRT 允许用于权重的最大 GPU 内存量。
+                             可取以下值：
+                               -2：（默认）在运行时禁用权重流式传输。
+                               -1：TensorRT 自动决定预算。
+                                0-100%：驻留在 GPU 上的可流式权重的百分比。
+                                        0% 节省最多内存但性能最差。需要 % 字符。
+                               >=0B：驻留在 GPU 上的可流式权重的精确大小。支持以下二进制后缀：
+                                    B（字节）、G（GiB）、K（KiB）、M（MiB）。
+
+=== 报告选项 ===
+  --verbose                  使用详细日志记录（默认 = false）
+  --avgRuns=N                报告 N 次连续迭代的平均性能测量结果（默认 = 10）
+  --percentile=P1,P2,P3,...  报告 P1,P2,P3,... 百分位的性能数据（0<=P_i<=100，0 代表最高性能，100 代表最低性能；默认 = 90,95,99%）
+  --dumpRefit                从可重构引擎中打印可重构的层和权重信息
+  --dumpOutput               打印最后一次推理迭代的输出张量（默认 = 禁用）
+  --dumpRawBindingsToFile    将最后一次推理迭代的输入/输出张量打印到文件中（默认 = 禁用）
+  --dumpProfile              打印每层的性能分析信息（默认 = 禁用）
+  --dumpLayerInfo            将引擎的层信息打印到控制台（默认 = 禁用）
+  --dumpOptimizationProfile  打印优化配置文件信息（默认 = 禁用）
+  --exportTimes=<文件>        将计时结果写入 JSON 文件（默认 = 禁用）
+  --exportOutput=<文件>       将输出张量写入 JSON 文件（默认 = 禁用）
+  --exportProfile=<文件>      将每层的性能分析信息写入 JSON 文件（默认 = 禁用）
+  --exportLayerInfo=<文件>    将引擎的层信息写入 JSON 文件（默认 = 禁用）
+
+=== 系统选项 ===
+  --device=N                 选择 CUDA 设备 N（默认 = 0）
+  --useDLACore=N             为支持 DLA 的层选择 DLA 核心 N（默认 = 无）
+  --staticPlugins            静态加载的插件库 (.so)（可多次指定）
+  --dynamicPlugins           动态加载的插件库 (.so)，如果包含在 --setPluginsToSerialize 中则可随引擎序列化（可多次指定）
+  --setPluginsToSerialize    要随引擎序列化的插件库 (.so)（可多次指定）
+  --ignoreParsedPluginLibs   默认情况下，在构建版本兼容引擎时，ONNX 解析器指定的插件库会隐式地随引擎序列化
+                             （除非指定了 --excludeLeanRuntime）并动态加载。启用此标志可改为忽略这些插件库。
+
+=== 帮助 ===
+  --help, -h                 打印此帮助信息
+
+
+一、模型转换（ONNX → Engine）：
+# FP16 引擎（最常用）
+trtexec --onnx=model.onnx --saveEngine=model_fp16.engine --fp16
+
+# INT8 引擎（需校准缓存）
+trtexec --onnx=model.onnx --saveEngine=model_int8.engine --int8 \
+        --calib=calibration.cache
+
+# 动态 Batch + 动态分辨率
+trtexec --onnx=model.onnx --saveEngine=model_dynamic.engine --fp16 \
+        --minShapes=input:1x3x480x480 \
+        --optShapes=input:4x3x640x640 \
+        --maxShapes=input:16x3x1280x1280
+
+# 强类型网络 + 直接IO（避免边界reformat，提升性能）
+trtexec --onnx=model.onnx --saveEngine=model_strong.engine --fp16 \
+        --stronglyTyped --directIO
+
+# 逐层精度控制（检测头保持FP16，其余INT8）
+trtexec --onnx=model.onnx --saveEngine=model_mixed.engine --int8 \
+        --precisionConstraints=obey \
+        --layerPrecisions="*/detect*:fp16,head/*:fp16" \
+        --calib=calibration.cache
+
+# 版本兼容引擎（跨TRT版本部署）
+trtexec --onnx=model.onnx --saveEngine=model_vc.engine --fp16 --vc
+
+二、Engine 检查与调试：
+# 查看层信息（数据类型、shape）
+trtexec --loadEngine=model.engine --dumpLayerInfo 2>&1 | tee layers.txt
+
+# 统计各精度层数（快速判断量化效果）
+trtexec --loadEngine=model.engine --dumpLayerInfo 2>&1 | grep -oP 'dtype=\w+' | sort | uniq -c
+
+# 查看输入输出张量信息
+trtexec --loadEngine=model.engine --dumpLayerInfo 2>&1 | grep -E "Input|Output"
+
+# 查看优化配置文件（动态shape范围）
+trtexec --loadEngine=model.engine --dumpOptimizationProfile
+
+# 导出层信息为JSON（便于程序解析）
+trtexec --loadEngine=model.engine --exportLayerInfo=layers.json
+
+# 仅查看引擎创建时的TRT版本（无需反序列化）
+trtexec --loadEngine=model.engine --getPlanVersionOnly
+
+三、性能基准测试：
+# 基础 Benchmark
+trtexec --loadEngine=model.engine --benchmark
+
+# 指定输入shape + 充分预热 + 长时测试
+trtexec --loadEngine=model.engine \
+        --shapes=input:4x3x640x640 \
+        --warmUp=500 --duration=10 --iterations=1000
+
+# 多Batch对比测试
+trtexec --loadEngine=model.engine \
+        --shapes=input:1x3x640x640,input:4x3x640x640,input:8x3x640x640
+
+# 逐层耗时分析（找出瓶颈层）
+trtexec --loadEngine=model.engine --dumpProfile --separateProfileRun 2>&1 | tee profile.txt
+
+# 导出性能数据为JSON
+trtexec --loadEngine=model.engine --exportTimes=timing.json --exportProfile=profile.json
+
+# 使用CUDA Graph加速推理
+trtexec --loadEngine=model.engine --useCudaGraph --benchmark
+
+# 多线程并发推理测试
+trtexec --loadEngine=model.engine --infStreams=4 --threads --benchmark
+
+四、精度验证与调试：
+# 打印最后一次推理的输出值
+trtexec --loadEngine=model.engine --dumpOutput
+
+# 加载自定义输入并保存输出（与PyTorch/ONNX结果对比）
+trtexec --loadEngine=model.engine \
+        --loadInputs=input:test_input.npy \
+        --dumpRawBindingsToFile
+
+# 构建时标记调试张量 + 推理时保存原始输出
+trtexec --onnx=model.onnx --saveEngine=model_debug.engine --fp16 \
+        --markDebug=conv1_out,detect_out
+trtexec --loadEngine=model_debug.engine \
+        --saveDebugTensors=conv1_out:conv1.bin,detect_out:detect.bin
+
+# 详细构建日志（排查构建失败）
+trtexec --onnx=model.onnx --saveEngine=model.engine --verbose 2>&1 | tee build.log
+
+五、内存与资源控制：
+# 限制Workspace大小（防止OOM）
+trtexec --onnx=model.onnx --saveEngine=model.engine --fp16 \
+        --memPoolSize=workspace:2G
+
+# 权重流式传输（大模型节省显存）
+trtexec --onnx=model.onnx --saveEngine=model_ws.engine --fp16 \
+        --stronglyTyped --allowWeightStreaming
+# 运行时设置预算
+trtexec --loadEngine=model_ws.engine --weightStreamingBudget=50%
+
+# 禁用时序缓存（减少构建内存占用）
+trtexec --onnx=model.onnx --saveEngine=model.engine --noBuilderCache
+
+# 设备内存按需分配（动态shape场景省显存）
+trtexec --loadEngine=model_dynamic.engine \
+        --shapes=input:1x3x640x640 \
+        --allocationStrategy=runtime --benchmark
+
+
+参数组合速记口诀：
+场景	核心参数组合
+转FP16	--onnx --saveEngine --fp16
+转INT8	--onnx --saveEngine --int8 --calib
+动态Shape	--minShapes --optShapes --maxShapes
+查层信息	--loadEngine --dumpLayerInfo
+测性能	--loadEngine --benchmark --shapes --warmUp --duration
+找瓶颈	--loadEngine --dumpProfile --separateProfileRun
+验精度	--loadEngine --loadInputs --dumpOutput
+限显存	--memPoolSize=workspace:XG
+
+提示：所有 --dump* 和 --export* 选项可以组合使用，一次运行同时获取多种信息。2>&1 | tee file.txt 是保存输出的标准做法，
+因为 trtexec 的部分输出走 stderr。
