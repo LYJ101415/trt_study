@@ -1,0 +1,121 @@
+
+polygraphy check lint 是 Polygraphy 工具包中用于全面诊断 ONNX 模型健康状况的核心命令。
+它不仅能检查模型是否符合 ONNX 协议规范，还能通过模拟推理执行来发现运行时错误（如维度不匹配），并利用静态图分析找出冗余节点。
+下面是： 命令语法、核心参数、工作原理、典型输出、最佳实践 五个方面进行详细说明。
+
+一、完整命令语法：
+polygraphy check lint <model_path> [OPTIONS]
+必填参数：<model_path>：待检查的 ONNX 模型文件路径（如 model.onnx）
+常用可选参数（OPTIONS）
+参数	                    说明	                            默认值
+-o, --output <file>	   将诊断报告保存为 JSON 文件	            不保存
+--providers <ep1 ep2 ...>	指定 ONNX Runtime 执行提供者（EP）	CPUExecutionProvider
+--input-shapes <name:shape ...>	覆盖模型输入的 shape（用于动态 shape 测试）	使用模型定义的 shape
+--data <data_loader>	提供自定义输入数据（而非随机生成）	    随机生成符合 dtype/shape 的数据
+--no-infer	            仅做静态检查，跳过动态推理	             False（默认执行推理）
+--silent	            抑制控制台日志（仅输出 JSON）	         False
+
+提示：运行 polygraphy check lint --help 可查看所有参数及详细说明。
+
+二、核心工作流程（内部发生了什么？）
+当你运行 polygraphy check lint model.onnx 时，Polygraphy 会按以下顺序执行：
+步骤 1：加载并静态校验模型；调用 onnx.checker.check_model()；检查：graph 名非空、opset 版本有效、节点属性合法等
+若失败 → 立即报错（如 Field 'name' is required）
+步骤 2：分析数据流依赖（死代码检测）；使用 onnx-graphsurgeon 构建计算图
+从输出节点反向遍历，标记所有可达节点；若输入/节点不可达 → 记录为 Warning
+步骤 3：生成测试输入数据；根据模型输入的 dtype 和 shape；自动生成随机张量（如 float32[1,3,224,224]）
+支持通过 --input-shapes 或 --data 覆盖
+步骤 4：执行一次推理（关键！）；启动 ONNX Runtime（默认 CPU，可用 --providers 指定 GPU）
+尝试运行 session.run(inputs)；若崩溃（如 MatMul 维度错）→ 捕获异常并记录为 Error
+步骤 5：生成结构化报告；汇总所有检查结果；输出到控制台 +（可选）JSON 文件
+
+三、典型命令示例与场景
+场景 1：基础检查（最常用）
+polygraphy check lint bad_graph.onnx -o report.json
+作用：全面检查模型，保存报告到 report.json；适用：模型导出后第一道质量关卡
+场景 2：GPU 加速检查（验证 CUDA 兼容性）
+polygraphy check lint model.onnx --providers CUDAExecutionProvider
+作用：在 GPU 上运行推理，暴露 CUDA 相关错误（如 unsupported op）；前提：已安装 onnxruntime-gpu
+场景 3：测试动态 batch size
+polygraphy check lint model.onnx --input-shapes input:[8,3,224,224]
+作用：覆盖默认输入 shape，验证大 batch 是否崩溃；价值：提前发现部署时的 shape 适配问题
+场景 4：仅静态检查（快速扫描）
+polygraphy check lint model.onnx --no-infer
+作用：跳过耗时的推理步骤，只检查协议合规性和死节点；适用：CI 中快速过滤明显错误模型
+场景 5：使用真实数据校验
+polygraphy check lint model.onnx --data ./calib_data.json
+作用：用真实样本（而非随机数据）测试模型；
+要求：calib_data.json 需符合 Polygraphy 的 inputs 格式（List[Dict[str, np.ndarray]]）
+
+四、输出详解：如何解读结果？
+控制台输出级别
+前缀	含义	     处理建议
+[I]	 Info（信息）	 正常流程日志
+[W]	 Warning（警告）	模型可运行，但存在冗余/低效
+[E]	 Error（错误）	 模型无法正常推理，必须修复
+
+JSON 报告关键字段
+{
+  "summary": {
+    "passing": ["Node1", "Node2"],  // 通过检查的节点
+    "failing": ["MatMul_0"]         // 失败的节点
+  },
+  "lint_entries": [
+    {
+      "level": "exception",         // 错误等级
+      "source": "onnxruntime",      // 检测来源
+      "message": "...",             // 错误描述
+      "nodes": ["MatMul_0"]         // 关联节点（若适用）
+    }
+  ]
+}
+ 定位问题技巧：先看 summary.failing 列表；在 lint_entries 中找到对应 nodes 的条目
+根据 source 判断是协议错误（onnx_checker）还是运行时错误（onnxruntime）
+
+五、生产环境最佳实践
+实践 1：CI/CD 集成（阻断坏模型合入）
+# GitHub Actions 示例
+- name: Lint ONNX Model
+  run: |
+    polygraphy check lint model.onnx -o lint_report.json
+    if python -c "import json; r=json.load(open('lint_report.json')); exit(1 if any(e['level']=='exception' for e in r['lint_entries']) else 0)"; then
+      echo "✅ Model passed linting"
+    else
+      echo "❌ Model has critical errors!"; exit 1
+    fi
+实践 2：自动化修复冗余节点
+# clean_model.py
+import onnx_graphsurgeon as gs
+import onnx
+
+graph = gs.import_onnx(onnx.load("model.onnx"))
+# 删除未使用的节点和输入
+graph.cleanup(remove_unused_graph_inputs=True).toposort()
+onnx.save(gs.export_onnx(graph), "model_clean.onnx")
+✅ 先用 check lint 发现 dead nodes，再用此脚本清理。
+
+实践 3：多设备兼容性检查
+# 检查 CPU/GPU/ TensorRT 兼容性
+polygraphy check lint model.onnx --providers CPUExecutionProvider
+polygraphy check lint model.onnx --providers CUDAExecutionProvider
+polygraphy run model.onnx --trt  # 最终用 TRT 验证
+
+六、常见问题与解决
+Q1: 为什么模型能被 ONNX Runtime 加载，但 check lint 报错？
+原因：ONNX Runtime 默认不严格校验（如允许空 graph name），而 check lint 强制启用 onnx.checker 的严格模式。
+解决：修复协议违规项（如给 graph 赋名）。
+Q2: 如何忽略某些警告（如 unused inputs）？
+当前限制：check lint 不支持过滤特定警告。
+变通方案：解析 JSON 报告时跳过 source=onnx_graphsurgeon 的条目。
+Q3: 能检查自定义算子（Custom Op）吗？
+答案：不能。check lint 依赖 ONNX Runtime 执行，若未注册 custom op 会报错。
+建议：先用 --no-infer 做静态检查，再单独测试 custom op。
+
+总结：何时使用 polygraphy check lint？
+阶段	        使用建议
+模型导出后	    必跑！捕获 PyTorch/TensorFlow 导出 bug
+模型优化前	    识别 dead nodes，指导剪枝
+跨平台部署前	验证 ONNX Runtime/TRT 兼容性
+团队模型交付	作为质量门禁（CI 强制检查）
+
+终极建议：将 polygraphy check lint model.onnx -o report.json 作为 ONNX 模型交付的标准步骤，

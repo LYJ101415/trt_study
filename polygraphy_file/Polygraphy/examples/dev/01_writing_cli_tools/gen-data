@@ -1,0 +1,140 @@
+
+"""
+Generates data and writes it to a file.
+"""
+
+from polygraphy import mod # 导入 Polygraphy 的模块懒加载工具（用于按需导入外部依赖）
+from polygraphy.common import TensorMetadata # TensorMetadata：用于描述模型输入/输出张量的元信息（名称、dtype、shape）
+from polygraphy.json import save_json # save_json：将 Python 对象（如字典、列表）保存为 Polygraphy 兼容的 JSON 格式
+from polygraphy.tools import Tool # Tool：所有自定义 CLI 工具必须继承的基类
+from polygraphy.tools.args import DataLoaderArgs # DataLoaderArgs：Polygraphy 提供的标准参数组，用于配置数据生成行为
+
+# Your tool should lazily import any external dependencies. By doing so,
+# we avoid creating hard dependencies on other packages.
+# Additionally, this allows Polygraphy to automatically install required packages
+# as they are needed, instead of requiring the user to do so up front.
+"""✅ 懒加载 numpy，避免硬依赖 - 用户即使没装 numpy，只要不运行此工具就不会报错
+ - Polygraphy 可在需要时提示用户安装（通过 mod.lazy_import 机制）"""
+np = mod.lazy_import("numpy")
+
+
+class GenData(Tool):
+    # Polygraphy will use the docstring of the tool child class to generate
+    # the summary for the command-line help output.
+    """
+    Generate random data and write it to a file.
+    此 docstring 会被自动用作 `./gen-data -h` 中的工具描述
+    """
+
+    # First, we'll implement `get_subscriptions_impl()` to subscribe to argument groups
+    # that we're intrested in.
+    # All the argument groups we subscribe to will be stored in a member called
+    # arg_groups, which maps types to instances.
+    """STEP 1: 订阅所需参数组（Argument Groups）"""
+    def get_subscriptions_impl(self):
+        """
+        返回本工具需要使用的参数组列表。Polygraphy 会自动实例化这些组，并存入 self.arg_groups 字典中。
+        """
+        return [DataLoaderArgs()] # 启用 --seed, --val-range 等数据加载选项
+
+    # Next, we'll add custom arguments, beyond those provided by our subscribed
+    # argument groups, by defining `add_parser_args_impl`.
+    """STEP 2: 添加自定义命令行参数"""
+    def add_parser_args_impl(self, parser):
+        """
+        向 argparse 解析器添加本工具特有的参数。
+        注意：不要调用 parser.add_argument_group()，直接 add_argument 即可。
+        """
+        parser.add_argument("-o", "--output", help="Path at which to write generated data.", required=True) # required=True-->必须提供输出路径
+        parser.add_argument("--num-values", help="The number of random values to generate.", default=1, type=int) # default=1,默认生成 1 个值;type=int,自动转为整数
+
+    # Lastly, we implement `run`, which will implement the functionality of our tool.
+    """STEP 3: 实现主逻辑"""
+    def run(self, args):
+        """
+        执行工具核心功能。`args` 是 argparse 解析后的命名空间对象，包含所有命令行参数。
+        """
+        # The DataLoaderArgs argument group provides a helper called `get_data_loader`, which
+        # will create a new data loader based on the command-line arguments provided by the user.
+        # See `polygraphy/tools/args/data_loader.py` for implementation details.
+        #
+        # To get data of the shape we want, we'll set the `input_metadata` parameter based on --num-values.
+        """1 构造张量元信息（TensorMetadata）  - 名称设为 "data"（任意名均可，但需唯一）
+          - dtype 设为 float32（Polygraphy DataLoader 默认类型）  - shape 设为 (N,)，其中 N = args.num_values
+          TensorMetadata 的作用：DataLoader 需要知道“要生成什么样的张量”；这里虚构了一个名为 "data" 的输入张量，形状为 (N,)；
+          实际使用中，可对应模型的真实输入名（如 "input.1"）"""
+        meta = TensorMetadata().add(name="data", dtype=np.float32, shape=(args.num_values,))
+        """2 获取配置好的数据加载器  - self.arg_groups[DataLoaderArgs] 是 DataLoaderArgs 的实例
+          - .get_data_loader(meta) 返回一个可迭代对象，每次 yield 一批数据 。"""
+        data_loader = self.arg_groups[DataLoaderArgs].get_data_loader(meta)
+
+        # data_loader behaves like a generator/iterable, so we can cast it to a `list` to
+        # generate all the data at once.
+        """3 生成数据并保存  - list(data_loader) 强制生成全部数据（通常只有一批）
+           - save_json 会将 {"data": [...]} 保存为结构化 JSON。DataLoader 的行为：list(data_loader)  # → [{"data": array([0.1, -0.5, ...])}]
+          data_loader 是一个生成器，每次迭代返回一个 Dict[str, np.ndarray]；调用 list() 强制生成一批数据（默认 batch_size=1）
+         结果是一个长度为 1 的列表，元素是输入数据字典"""
+        save_json(list(data_loader), dest=args.output, description="randomly generated numbers")
+
+
+# NOTE: To integrate a tool into Polygraphy, you will need to add it to the registry in
+# `polygraphy/tools/registry.py`.
+#
+# Alternatively, we can create a standalone tool by invoking the `main()` method, which will allow
+# our script to be used on the command-line.
+"""入口点：使脚本可独立运行（无需注册到 Polygraphy 主命令）.
+如果你希望 `polygraphy gen-data ...` 能用，需在 polygraphy/tools/registry.py 中注册 GenData
+# 但作为独立脚本，直接调用 main() 即可支持 ./gen-data ..."""
+GenData().main()
+
+"""
+实际应用示例
+示例 1：基本用法
+# 生成 5 个随机数，保存到 data.json
+./gen-data -o data.json --num-values 5
+
+# 查看内容
+cat data.json
+# 输出：
+# {"data": [0.5488135, 0.71518934, 0.60276335, 0.5448832, 0.4236548],
+#  "__description__": "randomly generated numbers"}
+示例 2：结合 DataLoaderArgs 参数
+# 生成 [0, 255] 范围内的整数（模拟图像像素）
+./gen-data -o image_data.json --num-values 100 \
+           --val-range [0,255] --int-min 0 --int-max 255
+
+# 设置随机种子以复现结果
+./gen-data -o repro.json --num-values 3 --seed 42
+示例 3：用于模型推理测试
+# 1. 生成符合模型输入 shape 的数据（假设模型输入为 [1, 3, 224, 224]）
+./gen-data -o input.json --num-values $((1*3*224*224))
+
+# 2. 用该数据运行 ONNX 模型
+polygraphy run model.onnx --load-inputs input.json
+
+ 技巧：若模型有多个输入，可修改代码支持 --input-shapes，但本例简化为单输入。
+
+ 扩展建议（进阶用法）:支持多输入
+# 修改 run() 方法
+shapes = {"input1": (10,), "input2": (5,)}
+meta = TensorMetadata()
+for name, shape in shapes.items():
+    meta.add(name, np.float32, shape)
+支持指定 dtype:
+# 添加参数
+parser.add_argument("--dtype", default="float32", choices=["float32", "int32", ...])
+
+# 在 run() 中
+dtype = getattr(np, args.dtype)
+保存为 .npz（二进制更高效）
+from polygraphy.json import save_npz
+save_npz(list(data_loader)[0], args.output)  # 注意：save_npz 接收 dict 而非 list
+ 总结：设计亮点
+特性	优势
+继承 Tool	自动获得 -h, --verbose, 日志系统等
+订阅 DataLoaderArgs	复用成熟的数据生成逻辑（分布、范围、种子等）
+懒加载依赖	用户体验友好，降低安装门槛
+输出标准格式	与整个 Polygraphy 生态无缝集成
+独立可执行	无需注册即可作为脚本使用
+ 一句话总结：这段代码展示了如何用 最少的代码 构建一个专业级、可扩展、生态兼容的 CLI 工具，充分体现了 Polygraphy 的模块化设计理念。
+"""
