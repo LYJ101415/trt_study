@@ -68,9 +68,9 @@ def run_eval(engine_path, images_dir, ann_json, output_json, conf=0.001, iou=0.6
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="运行时阈值端到端 engine 的 mAP 评测")
-    ap.add_argument("--engine", default="/root/my_FILE/models/yolov8_int8_e2e_conf.engine")
-    ap.add_argument("--images", default="/root/my_FILE/my_FILE/CV_yolov8/datasets/Data_DeepPCB_YOLO/images/test")
-    ap.add_argument("--ann", default="/root/my_FILE/my_FILE/CV_yolov8/datasets/Data_DeepPCB_YOLO/images/test_coco.json")
+    ap.add_argument("--engine", default="/root/my_FILE/models/yolov8_e2e_dyn.engine")
+    ap.add_argument("--images", default="/root/my_FILE/datasets/Data_DeepPCB_YOLO/images/test")
+    ap.add_argument("--ann", default="/root/my_FILE/datasets/Data_DeepPCB_YOLO/images/test_coco.json")
     ap.add_argument("--output", default="detections_conf.json")
     ap.add_argument("--conf", type=float, default=0.001)
     ap.add_argument("--iou", type=float, default=0.65)

@@ -1,5 +1,5 @@
 """
-graphsurgeon_e2e_conf.py — 端到端 engine，但 conf / iou 阈值是「运行时输入」。
+graphsurgeon_e2e.py — 端到端 engine，但 conf / iou 阈值是「运行时输入」。
 
 与 e2e/graphsurgeon_e2e.py 的唯一区别：
   原来 NonMaxSuppression 的 iou_threshold / score_threshold 是常量（烧死在图里，
@@ -191,10 +191,10 @@ def build_e2e_conf(src, dst, max_dets=300, num_classes=6):
     g.output.append(helper.make_tensor_value_info("detections", F32, [max_dets, 6]))
 
     # 拼接三部分节点：预处理 + 原始模型 + 后处理
-    all_nodes = pre_nodes + list(g.node) + post_nodes 
-    del g.node[:] 
-    g.node.extend(all_nodes) # 写入合并后的节点
-    g.initializer.extend(inits) 
+    all_nodes = pre_nodes + list(g.node) + post_nodes
+    del g.node[:]
+    g.node.extend(all_nodes)  # ★ 修复：清空后必须把节点写回，否则保存的模型没有任何节点
+    g.initializer.extend(inits)
 
     onnx.checker.check_model(model) # 合法性校验
     onnx.save(model, dst)
@@ -239,7 +239,7 @@ def check_with_onnxruntime(onnx_path, src_onnx, conf=0.45, iou=0.65):
                         round(float(d), 2), round(float(e), 2), int(f))
                        for a, b, c, d, e, f in d])
 
-    img = cv2.imread('/root/my_FILE/my_FILE/test_images/00041200.jpg')
+    img = cv2.imread('/root/my_FILE/my_trt_FILE/datasets/Data_DeepPCB_YOLO/images/test/00041200.jpg')
     scale, pad_x, pad_y = letterbox_params(img.shape[0], img.shape[1])
 
     # 1. 用原始模型 + CPU 后处理得到参考结果
@@ -269,8 +269,8 @@ def check_with_onnxruntime(onnx_path, src_onnx, conf=0.45, iou=0.65):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", default="/root/my_FILE/models/best_PCB.onnx")
-    ap.add_argument("--dst", default="/root/my_FILE/models/best_PCB_e2e_conf.onnx")
+    ap.add_argument("--src", default="/root/my_FILE/models/yolov8_int8_exclude.onnx")
+    ap.add_argument("--dst", default="/root/my_FILE/models/yolov8_int8_exclude_e2e.onnx")
     ap.add_argument("--max-det", type=int, default=300)
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()

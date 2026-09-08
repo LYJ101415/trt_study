@@ -167,9 +167,6 @@ def postprocess_cpu(output: np.ndarray, scale: float, pad_w: int, pad_h: int):
     )
 
     # 兼容不同 OpenCV 版本的返回格式（有的返回 list[list[int]]，有的返回 list[int]）
-    # 防御：个别 OpenCV 版本无框通过时返回 None（而非空元组），置空避免遍历报错
-    if indices is None:
-        indices = []
     indices = [i[0] if isinstance(i, (list, tuple)) else i for i in indices]
 
     # 组装最终结果：(x1, y1, x2, y2, confidence, class_id)
