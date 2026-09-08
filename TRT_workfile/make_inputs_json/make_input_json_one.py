@@ -16,8 +16,8 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 # 2. 配置参数（请根据实际情况修改）
-IMAGE_PATH = "/root/my_FILE/CV_yolov8/datasets/Data_DeepPCB_YOLO/images/train/00041010.jpg"  # 替换为你的真实图片路径
-OUTPUT_JSON = "/root/my_FILE/real_image_inputs.json"
+IMAGE_PATH = "/root/my_FILE/datasets/Data_DeepPCB_YOLO/images/test/00041200.jpg"  # 替换为你的真实图片路径
+OUTPUT_JSON = "/root/my_FILE/datasets/Data_DeepPCB_YOLO/images/real_image_inputs.json"
 TARGET_SIZE = (640, 640)                     # 模型期望的输入尺寸 [H, W]
 INPUT_NAME = "images"                        # ONNX 模型中实际输入节点的名称
 

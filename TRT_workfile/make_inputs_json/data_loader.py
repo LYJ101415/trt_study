@@ -15,7 +15,7 @@ from polygraphy.backend.trt import Calibrator
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # ONNX_PATH = "/root/my_FILE/myStudy_flle/best_PCB_F.onnx"
-CALIB_IMG_DIR = "/root/my_FILE/my_FILE/CV_yolov8/datasets/Data_DeepPCB_YOLO/images/val"  # 👈 替换为你的真实校准图片文件夹路径
+CALIB_IMG_DIR = "/root/my_FILE/my_trt_FILE/my_FILE/CV_yolov8/datasets/Data_DeepPCB_YOLO/images/val"  # 👈 替换为你的真实校准图片文件夹路径
 # engine_path = "yolov8_int8.onnx"
 CALIB_NUM = 200  # 校准图片数量，建议 100~500 张
 IMG_SIZE = 640   # YOLOv8 输入尺寸

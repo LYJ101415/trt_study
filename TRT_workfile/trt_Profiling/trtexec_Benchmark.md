@@ -1,13 +1,13 @@
 # ========== 基础延迟/吞吐测试 ==========
-trtexec --loadEngine=/root/my_FILE/yolov8_int8_fixed_1.engine \
-        --shapes=images:1x3x640x640 \
+trtexec --loadEngine=/root/my_FILE/models/yolov8_fp16.engine \
+        --shapes=image_raw:1x640x640x3 \
         --iterations=100 \
         --warmUp=500 \
         --duration=10 \
         --dumpProfile \
         --separateProfileRun \
-        --exportTimes=timing_2.json \
-        --exportProfile=profile_2.json
+        --exportTimes=/root/my_FILE/ceshi_file/timing.json \
+        --exportProfile=/root/my_FILE/ceshi_file/profile.json
 
 # timing.json文件的解读：
     字段	                      含义	                                  数值范围
@@ -120,10 +120,10 @@ else:
 # ==============用trtexec创建引擎=======================================
 1. 用fp32模型量化（采用了校准缓存），创建引擎并使用参数--profilingVerbosity=detailed可以后续打印详细层信息。
    采用这个直接构建的精度损失太多，应该采用先量化为插入Q/DQ节点的onnx模型，再创建trt引擎的方法。
-trtexec --onnx=yolov8.onnx \
+trtexec --onnx=/root/my_FILE/models/best_PCB.onnx \
         --saveEngine=/root/my_FILE/yolov8_int8.engine \
         --int8 --fp16 \
-        --calib=/root/my_FILE/data_loader.py \
+        --calib="校准缓存地址" \
         --profilingVerbosity=detailed
 
 2. 使用量化后的插入Q/DQ节点的onnx模型创建引擎并采用参数--profilingVerbosity=detailed。
@@ -135,13 +135,14 @@ trtexec --onnx=/root/my_FILE/yolov8_int8.onnx \
 
 # =======怎么用trtexec打印输出层结构，数据类型，算子等信息=========================
 1. 如果在构造引擎时加上参数“--profilingVerbosity=detailed”，则在模型输出层结构时会输出详细信息，
-如果不加，则只能打印出层的组成算子（大kernel的算子组成）：
+如果不加，则只能打印出层的组成算子（大kernel的算子组成）,如果是动态引擎，加参数--shapes=image_raw:1x640x640x3 \：
 第一个的输出文件比较正规：
-trtexec --loadEngine=/root/my_FILE/yolov8_int8.engine \
+trtexec --loadEngine=/root/my_FILE/models/yolov8_int8_e2e.engine \
         --exportLayerInfo=/root/my_FILE/layer_info_2.json
 
-trtexec --loadEngine=/root/my_FILE/yolov8_int8_fixed_1.engine \
-        --dumpLayerInfo > /root/my_FILE/layer_info_2.json
+trtexec --loadEngine=/root/my_FILE/models/yolov8_int8_e2e_dyn_float.engine \
+--shapes=image_raw:1x640x640x3 \
+--dumpLayerInfo > /root/my_FILE/layer_info_2.json
 =========================================================================
 
 # ========== 指定输入 shape（动态 batch）==========

@@ -13,7 +13,7 @@ network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPL
 parser = trt.OnnxParser(network, logger)
 
 # 1. 解析量化后的 ONNX 模型
-onnx_path = "/root/my_FILE/yolov8_int8_fixed_1.onnx"
+onnx_path = "/root/my_FILE/models/yolov8_int8_st.onnx"
 with open(onnx_path, "rb") as f:
     if not parser.parse(f.read()):
         for error in range(parser.num_errors):
@@ -35,7 +35,7 @@ if serialized_engine is None:
     raise RuntimeError("Failed to build TensorRT engine")
 
 # 3. 保存引擎文件
-output_path = "yolov8_int8_fixed_1.engine"
+output_path = "/root/my_FILE/models/yolov8_int8_st.engine"
 with open(output_path, "wb") as f:
     f.write(serialized_engine)
 

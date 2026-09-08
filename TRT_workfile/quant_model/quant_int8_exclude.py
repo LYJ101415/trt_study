@@ -10,10 +10,12 @@ from modelopt.onnx.quantization import quantize
 
 import onnx  # 仅用于节点名校验
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# DEVICE = "cuda" if torch.cuda.is_available() else "cpu" # DEVICE 在这个文件里是死代码——只定义了一次，
+        # 后面任何地方都没用到（torch 这个 import 也只为它服务，是从原脚本继承下来的摆设）。
+        # 真正决定校准在哪跑的是 ModelOpt 的 calibration_eps 参数。而脚本里没有传这个参数 → 用默认值 ['cpu', 'cuda:0', 'trt'] 
 ONNX_PATH = "/root/my_FILE/models/best_PCB.onnx"
-CALIB_IMG_DIR = "/root/my_FILE/my_FILE/CV_yolov8/datasets/Data_DeepPCB_YOLO/images/val"
-engine_path = "yolov8_int8_1.onnx"
+CALIB_IMG_DIR = "/root/my_FILE/my_trt_FILE/datasets/Data_DeepPCB_YOLO/images/val"
+engine_path = "/root/my_FILE/models/yolov8_int8_exclude.onnx"
 CALIB_NUM = 200
 IMG_SIZE = 640
 
@@ -140,6 +142,8 @@ def main():
         calibration_method='entropy',
         output_path=engine_path,
         nodes_to_exclude=NODES_TO_EXCLUDE,   # 忽略节点
+        # calibration_eps=['cuda:0','cpu']  # 到GPU上跑校准量化，默认是['cpu', 'cuda:0', 'trt']，但GPU 上跑的也是一个没经过任何优化、按部就班逐节点执行的图，
+                                # 没有时间收益，要快，需要把校准 batch 从 1 提到 8。
     )
     print(f"[DONE] 已输出到 {engine_path}")
 

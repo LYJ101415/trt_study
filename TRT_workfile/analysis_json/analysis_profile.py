@@ -6,7 +6,7 @@
 import json
 import sys
 
-filepath = "profile.json"
+filepath = "/root/my_FILE/profile_2.json"
 
 with open(filepath) as f:
     data = json.load(f)

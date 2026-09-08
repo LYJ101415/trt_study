@@ -67,11 +67,11 @@ def build_engine(onnx_path, output_path, min_batch, opt_batch, max_batch,
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="Build TensorRT engine with dynamic batch")
-    p.add_argument("--onnx",      type=str, default="/root/my_FILE/models/yolov8_int8_dynamic_fidex.onnx", help="量化后 ONNX 路径")
-    p.add_argument("--output",    type=str, default="/root/my_FILE/models/yolov8_int8_dynamic_1.engine", help="输出 .engine 路径")
+    p.add_argument("--onnx",      type=str, default="/root/my_FILE/models/yolov8_int8_dy.onnx", help="量化后 ONNX 路径")
+    p.add_argument("--output",    type=str, default="/root/my_FILE/models/yolov8_int8_dy.engine", help="输出 .engine 路径")
     p.add_argument("--min-batch", type=int, default=1,     help="最小 batch size")
     p.add_argument("--opt-batch", type=int, default=1,     help="最优 batch size（最常用）")
-    p.add_argument("--max-batch", type=int, default=1,     help="最大 batch size")
+    p.add_argument("--max-batch", type=int, default=8,     help="最大 batch size")
     p.add_argument("--img-size",  type=int, default=640,   help="输入图像尺寸")
     p.add_argument("--workspace", type=int, default=4,     help="Workspace 大小 (GB)")
     p.add_argument("--verbose",   action="store_true",     help="开启 VERBOSE 日志")

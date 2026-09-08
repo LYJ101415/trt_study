@@ -9,7 +9,7 @@ logger = trt.Logger(trt.Logger.WARNING)
 builder = trt.Builder(logger)
 network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))  
 parser = trt.OnnxParser(network, logger)
-onnx_path = "/root/my_FILE/yolov8_int8_1.onnx"
+onnx_path = "/root/my_FILE/models/yolov8_int8_exclude.onnx"
 with open(onnx_path, "rb") as f:
     if not parser.parse(f.read()):
         for error in range(parser.num_errors):
@@ -63,7 +63,7 @@ serialized_engine = builder.build_serialized_network(network, config)
 if serialized_engine is None:
     raise RuntimeError("Failed to build TensorRT engine")
 
-output_path = "yolov8_int8_fixed.engine"
+output_path = "/root/my_FILE/models/yolov8_int8_fixed.engine"
 with open(output_path, "wb") as f:
     f.write(serialized_engine)
 print(f"✅ TensorRT engine saved as {output_path}")

@@ -10,7 +10,7 @@ polygraphy inspect model /root/my_FILE/yolov8_int8.onnx --show layers attrs weig
 polygraphy inspect model dynamic_identity.engine \
     --show layers
 ：：显示更详细的层信息。
-polygraphy inspect model /root/my_FILE/yolov8_int8.engine \
+polygraphy inspect model /root/my_FILE/models/yolov8_int8_e2e.engine \
     --show layers attrs 
 
 4. 自动将支持的格式转换为 TensorRT 网络，并将其显示出来:

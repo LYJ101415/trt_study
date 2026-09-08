@@ -37,9 +37,9 @@ from pycocotools.cocoeval import COCOeval
 import onnxruntime as ort
 
 DEFAULT_CONFIG = {
-    "int8_model": "/root/my_FILE/yolov8_int8.onnx",
-    "images_dir": "/root/my_FILE/my_FILE/CV_yolov8/datasets/Data_DeepPCB_YOLO/images/val",
-    "ann_json": "/root/my_FILE/my_FILE/CV_yolov8/datasets/Data_DeepPCB_YOLO/images/val_coco.json",
+    "int8_model": "/root/my_FILE/models/yolov8_int8.onnx",
+    "images_dir": "/root/my_FILE/my_trt_FILE/datasets/Data_DeepPCB_YOLO/images/val",
+    "ann_json": "/root/my_FILE/my_trt_FILE/datasets/Data_DeepPCB_YOLO/images/val_coco.json",
     "img_size": 640,
     "conf_thres": 0.001,
     "iou_thres": 0.65,

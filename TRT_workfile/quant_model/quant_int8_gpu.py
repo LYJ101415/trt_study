@@ -1,18 +1,30 @@
+"""
+INT8 量化（校准跑在 GPU 上）— 基于 quant_int8.py 的修复版
+
+原文件 quant_int8.py 校准不能在 GPU 上运行的原因：
+  1. LD_LIBRARY_PATH 缺少 cuDNN 库路径，ModelOpt 启用 CUDA EP 前的预检
+     (_check_for_libcudnn) 失败，静默回退到 CPU；
+  2. quantize() 的默认 calibration_eps=['cpu', 'cuda:0', 'trt'] 把 CPU
+     排在最高优先级，即使 CUDA 可用节点也全被 CPU 吃掉。原脚本中手工
+     定义的 providers 列表是死代码，从未传给 quantize()。
+
+修复：quantize() 显式传入 calibration_eps=["cuda:0", "cpu"]。
+
+运行前必须设置环境变量（否则 CUDA EP 预检失败回到 CPU）：
+  export LD_LIBRARY_PATH=/root/miniconda3/lib/python3.12/site-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH
+
+验证方法：运行时日志不应出现 "Failed to enable ORT with CUDA EP" 的 warning。
+"""
 import numpy as np
 import torch
 import os
 import cv2
 from modelopt.onnx.quantization import quantize
 
-from polygraphy.backend.trt import Calibrator
-
-# # 伪造校准数据
-# dummy_input = np.random.randn(1, 3, 640, 640).astype(np.float32)
-
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-ONNX_PATH = "/root/my_FILE/myStudy_flle/best_PCB_F.onnx"
-CALIB_IMG_DIR = "/root/my_FILE/my_FILE/CV_yolov8/datasets/Data_DeepPCB_YOLO/images/val"  # 👈 替换为你的真实校准图片文件夹路径
-engine_path = "yolov8_int8.onnx"
+ONNX_PATH = "/root/my_FILE/models/best_PCB.onnx"
+CALIB_IMG_DIR = "/root/my_FILE/my_trt_FILE/datasets/Data_DeepPCB_YOLO/images/val"  # 👈 替换为你的真实校准图片文件夹路径
+engine_path = "/root/my_FILE/models/yolov8_int8.onnx"
 CALIB_NUM = 200  # 校准图片数量，建议 100~500 张
 IMG_SIZE = 640   # YOLOv8 输入尺寸
 
@@ -41,7 +53,7 @@ def letterbox_yolov8(im, new_shape=(640, 640), color=(114, 114, 114)):
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1)) # 保证上下填充之和绝对等于目标需要填充的总像素，防止图像尺寸出现 1 个像素的偏差。
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
     im = cv2.copyMakeBorder(im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
-    
+
     return im
 
 def preprocess_image(image_path, target_size=(640, 640)):
@@ -51,14 +63,14 @@ def preprocess_image(image_path, target_size=(640, 640)):
     img = cv2.imread(image_path)
     if img is None:
         raise ValueError(f"无法读取图片: {image_path}")
-    
+
     # 1. 执行 Letterbox 缩放与填充
     img_letterbox = letterbox_yolov8(img, target_size)
-    
+
     # 2. BGR 转 RGB，并归一化到 [0, 1]
     img_rgb = cv2.cvtColor(img_letterbox, cv2.COLOR_BGR2RGB)
     img_normalized = img_rgb.astype(np.float32) / 255.0
-    
+
     # 3. HWC 转 CHW，并增加 Batch 维度 -> NCHW
     img_chw = np.transpose(img_normalized, (2, 0, 1))
     img_nchw = np.expand_dims(img_chw, axis=0)
@@ -73,10 +85,9 @@ def calib_data():
     if len(img_files) == 0:
         raise FileNotFoundError(f"在 {CALIB_IMG_DIR} 中未找到任何图片！")
 
-    input_name = "images"
     calib_list = []
     count = 0
-    
+
     for img_file in img_files:
         if count >= CALIB_NUM:
             break
@@ -84,18 +95,16 @@ def calib_data():
         img_array = preprocess_image(img_path)
         if img_array is None:
             continue  # 跳过损坏的图片
-            
+
         # 确保是 numpy 数组，且 shape 为 (1, 3, 640, 640)
         if isinstance(img_array, np.ndarray):
             calib_list.append(img_array)
             count += 1
-    
+
     print(f"[INFO] 成功加载 {count} 张校准图片。")
-    
-    # 将列表拼接为 (N, 1, 3, 640, 640)，然后 squeeze 掉多余的维度，变成 (N, 3, 640, 640)
-    # 注意：如果 preprocess_image 已经返回 (1,3,640,640)，stack 后是 (N,1,3,640,640)
-    # 我们需要将其调整为 (N, 3, 640, 640)
-    calib_array = np.concatenate(calib_list, axis=0) 
+
+    # stack 后为 (N, 1, 3, 640, 640)，沿 batch 维拼接成 (N, 3, 640, 640)
+    calib_array = np.concatenate(calib_list, axis=0)
 
     return calib_array
 
@@ -108,9 +117,10 @@ def main():
         ONNX_PATH,
         calibration_data=calibrator_data,
         calibration_method='entropy', # 指定量化校准（Calibration）时使用的统计算法为“熵校准算法”（Entropy Calibration）
+        calibration_eps=["cuda:0", "cpu"],  # 👈 关键修复：GPU 执行优先，CPU 兜底（默认 ['cpu','cuda:0','trt'] 会全跑在 CPU 上）
         output_path=engine_path,
         # 以下是示意参数，忽略 YOLOv8 末尾的检测头或容易溢出的 Sigmoid/Div 算子
-        # op_types_to_exclude=['Sigmoid1'], 
+        # op_types_to_exclude=['Sigmoid1'],
         # node_names_to_exclude=['Conv_3','Conv_250'] # 精确指定 YOLOv8 检测头的节点名
     )
 
