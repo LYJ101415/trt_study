@@ -3,12 +3,12 @@
   polygraphy check lint /root/my_FILE/myStudy_flle/best_PCB_F.onnx -o report.json
 
 2.检查 ONNX 模型
-polygraphy inspect model identity.onnx --show layers > model_tensorrt.txt  -->>重定向输出到文件并保存
+polygraphy inspect model /root/my_FILE/models/yolov8_e2e_dy.onnx --show layers > /root/my_FILE/ceshi_file/model_tensorrt.txt  -->>重定向输出到文件并保存
 polygraphy inspect model identity.onnx --show layers attrs weights  -->>来显示详细的层信息，包括层属性和权重
 
 3.检查 TensorRT 引擎：
-polygraphy inspect model dynamic_identity.engine \
-    --show layers
+polygraphy inspect model /root/my_FILE/models/yolov8_e2e_dyn.engine \
+    --show layers > /root/my_FILE/ceshi_file/model_tensorrt.txt
 ：：显示更详细的层信息。
 polygraphy inspect model dynamic_identity.engine \
     --show layers attrs
